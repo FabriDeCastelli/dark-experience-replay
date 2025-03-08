@@ -1,15 +1,15 @@
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader, random_split
-import torch.nn.functional as F
 import config
-import torch
+import torch.nn.functional as F
 
 from src import models
 from PIL import Image
+import numpy as np
 
 
-class PermutedMNIST:
-    NAME = 'perm-mnist'
+class RotatedMNIST:
+    NAME = 'rot-mnist'
     SETTING = 'domain-il'
     N_CLASSES_PER_TASK = 10
     N_TASKS = 20
@@ -24,7 +24,7 @@ class PermutedMNIST:
 
     class CustomMNIST(datasets.MNIST):
         def __init__(self, *args, **kwargs):
-            super(PermutedMNIST.CustomMNIST, self).__init__(*args, **kwargs)
+            super(RotatedMNIST.CustomMNIST, self).__init__(*args, **kwargs)
 
         def __getitem__(self, index):
             """ returns the augmented image, target and the not augmented image"""
@@ -36,41 +36,41 @@ class PermutedMNIST:
             return img, target, img
         
     def setup_loaders(self):
-        self.permutations = []
         self.tasks = [] 
+        self.degrees_list = [] 
         self.test_loaders = [] 
 
-        def get_transform(permutation):
+        def get_transform(degrees):
             """ Ensure each dataset gets its own independent transformation """
             return transforms.Compose([
+                lambda x: transforms.functional.rotate(x, degrees),
                 transforms.ToTensor(),
-                lambda x: x.view(-1)[permutation].view(28, 28)
             ])
 
         for task_id in range(self.N_TASKS):
-            permutation = torch.randperm(28 * 28)  
-            self.permutations.append(permutation) 
+            degrees = np.random.uniform(0, 180) 
+            self.degrees_list.append(degrees) 
 
-            train_transform = get_transform(permutation)  
+            train_transform = get_transform(degrees)
             train_dataset = self.CustomMNIST(root=config.DATASET_PATH, train=True, download=True, transform=train_transform)
 
             # split training data into training (90%) and validation (10%)
             val_size = int(0.1 * len(train_dataset))
             train_size = len(train_dataset) - val_size
             train_subset, val_subset = random_split(train_dataset, [train_size, val_size])
-            
-            test_transform = get_transform(permutation)
-            test_dataset = datasets.MNIST(root=config.DATASET_PATH, train=False, download=True, transform=test_transform)
 
+            test_transform = get_transform(degrees)
+            test_dataset = datasets.MNIST(root=config.DATASET_PATH, train=False, download=True, transform=test_transform)
+            
             train_dataloader = DataLoader(train_subset, batch_size=self.get_batch_size(), shuffle=True)
-            val_dataloader = DataLoader(val_subset, batch_size=self.get_batch_size())
-            test_dataloader = DataLoader(test_dataset, batch_size=self.get_batch_size())
+            val_dataloader = DataLoader(val_subset, batch_size=self.get_batch_size(), shuffle=False)
+            test_dataloader = DataLoader(test_dataset, batch_size=self.get_batch_size(), shuffle=False)
 
             self.tasks.append((train_dataloader, task_id))
             self.val_loaders.append(val_dataloader)
             self.test_loaders.append(test_dataloader)
 
-        
+
     def get_train_loader(self):
         return self.tasks
     

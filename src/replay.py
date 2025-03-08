@@ -1,24 +1,36 @@
 
 import torch.nn.functional as F
 from src.reservoir import ReservoirBuffer
-from src.metric import Metric
 import torch
 
 
 class DarkExperienceReplay:
-    def __init__(self, dataset, lr, buffer_size=500):
+    """
+    Dark Experience Replay (DER).
+    """
+    def __init__(self, dataset, lr, buffer_size=500, weights=None):
         self.dataset = dataset
         self.buffer = ReservoirBuffer(buffer_size)
-        self.model = dataset.get_model()
+        self.model = dataset.get_model(weights)
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=lr)
         self.criterion = dataset.get_loss()
         self.transform = dataset.get_transform()
 
-    def train(self, train_loader, task_id, replay_batch_size, alpha=0.5, beta=None, epochs=1):
+    def train(self, train_loader, task_id, replay_batch_size, alpha=0.5, beta=None):
 
-        # get predefined number of epochs
-        if epochs != 1:
-            epochs = self.dataset.get_epochs()
+        """
+        Train the model using Dark Experience Replay (DER).
+
+        Args:
+            train_loader (torch.utils.data.DataLoader): Training data loader.
+            task_id (int): the current task id.
+            replay_batch_size (int): Replay batch size.
+            alpha (float): Alpha regularization term.
+            beta (float): Beta regularization term. If specified it the algorithm is DER++.
+        """
+
+        # get predefined number of epochs
+        epochs = self.dataset.get_epochs()
 
         if train_loader.batch_size < replay_batch_size:
             raise ValueError("Replay batch size must be smaller or equal to training batch size.")
@@ -52,8 +64,3 @@ class DarkExperienceReplay:
                 self.buffer.add(x=x, z=outputs, y=y if beta is not None else None, task_id=task_id)
             
             print(f"Epoch {epoch+1}/{epochs} - Loss: {loss.item()}", end="\r")
-
-    def eval(self, test_loader, metric: Metric, task_id, experience_id):
-        return metric(test_loader, self.model, task_id, experience_id)
-
-        
