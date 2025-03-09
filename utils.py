@@ -28,6 +28,37 @@ def apply_transform(x: torch.Tensor, transform, autosqueeze=False) -> torch.Tens
     return out
 
 
+def fine_tune(dataset, lr, task_id, weights=None):
+    """
+    Fine-tunes the model on the current task (does not use the buffer).
+
+    Args:
+        dataset: the dataset to fine-tune on
+        lr: the learning rate
+        task_id: the current task id
+        weights: the weights to load into the model
+
+    Returns:
+        the model's weights and the accuracy on the validation set
+    """
+    epochs = dataset.get_epochs()
+    model = dataset.get_model(weights=weights)
+    optimizer = torch.optim.SGD(model.parameters(), lr=lr)
+    criterion = dataset.get_loss()
+    task_ids = torch.full((dataset.get_batch_size(),), task_id, dtype=torch.long)
+    train_loader = dataset.get_train_loader()[task_id][0]
+    for epoch in range(epochs):
+        for x, y, _ in train_loader:
+            optimizer.zero_grad()
+            outputs = model.forward(x, task_ids)
+            loss = criterion(outputs, y)
+            loss.backward()
+            optimizer.step()
+
+    val_loader = dataset.get_val_loader(task_id)
+    return model, model.eval(val_loader, task_id)
+
+
 def read_yaml(path: str) -> dict[str, Any]:
     """
     Reads a file in .yaml format.

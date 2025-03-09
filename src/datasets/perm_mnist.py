@@ -20,7 +20,8 @@ class PermutedMNIST:
         self.tasks = []
         self.test_loaders = []
         self.val_loaders = []
-        self.setup_loaders() 
+        self.permutations = []
+        self.setup_loaders()
 
     class CustomMNIST(datasets.MNIST):
         def __init__(self, *args, **kwargs):
@@ -34,33 +35,32 @@ class PermutedMNIST:
                 img = self.transform(img)
 
             return img, target, img
-        
-    def setup_loaders(self):
-        self.permutations = []
-        self.tasks = [] 
-        self.test_loaders = [] 
 
-        def get_transform(permutation):
+    def setup_loaders(self):
+
+        def get_transform(perm):
             """ Ensure each dataset gets its own independent transformation """
             return transforms.Compose([
                 transforms.ToTensor(),
-                lambda x: x.view(-1)[permutation].view(28, 28)
+                lambda x: x.view(-1)[perm].view(28, 28)
             ])
 
         for task_id in range(self.N_TASKS):
-            permutation = torch.randperm(28 * 28)  
-            self.permutations.append(permutation) 
+            permutation = torch.randperm(28 * 28)
+            self.permutations.append(permutation)
 
-            train_transform = get_transform(permutation)  
-            train_dataset = self.CustomMNIST(root=config.DATASET_PATH, train=True, download=True, transform=train_transform)
+            train_transform = get_transform(permutation)
+            train_dataset = self.CustomMNIST(root=config.DATASET_PATH, train=True, download=True,
+                                             transform=train_transform)
 
             # split training data into training (90%) and validation (10%)
             val_size = int(0.1 * len(train_dataset))
             train_size = len(train_dataset) - val_size
             train_subset, val_subset = random_split(train_dataset, [train_size, val_size])
-            
+
             test_transform = get_transform(permutation)
-            test_dataset = datasets.MNIST(root=config.DATASET_PATH, train=False, download=True, transform=test_transform)
+            test_dataset = datasets.MNIST(root=config.DATASET_PATH, train=False, download=True,
+                                          transform=test_transform)
 
             train_dataloader = DataLoader(train_subset, batch_size=self.get_batch_size(), shuffle=True)
             val_dataloader = DataLoader(val_subset, batch_size=self.get_batch_size())
@@ -70,13 +70,12 @@ class PermutedMNIST:
             self.val_loaders.append(val_dataloader)
             self.test_loaders.append(test_dataloader)
 
-        
     def get_train_loader(self):
         return self.tasks
-    
+
     def get_test_loader(self, task_id: int):
         return self.test_loaders[task_id]
-    
+
     def get_val_loader(self, task_id: int):
         return self.val_loaders[task_id]
 
@@ -91,6 +90,6 @@ class PermutedMNIST:
 
     def get_epochs(self):
         return 1
-    
+
     def get_model(self, weights=None):
-        return models.SingleHeadMLP(input_size=28*28, hidden_size=100, output_size=10, weights=weights)
+        return models.SingleHeadMLP(input_size=28 * 28, hidden_size=100, output_size=10, weights=weights)

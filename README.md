@@ -11,7 +11,6 @@ In this repository you will find the following files
 │   │   ├── ➡️ seq_mnist.py
 │   │   ├── 🔃 perm_mnist.py
 │   │   └── 🔄 rotated_mnist.py
-│   ├── 🔍 augmentations.py
 │   ├── 📏 metric.py
 │   ├── 🗳️ model_selection.py
 │   ├── ⊞ models.py
@@ -38,7 +37,6 @@ In this repository you will find the following files
 In order, the relevant contents are:
 - `src/`
     - `datasets/**.py`: contains the used benchmarks
-    - `augmentations.py`: contains the augmentations used for some datasets
     - `metric.py`: contains the metric used for the experiments
     - `model_selection.py`: implementation of the continual hyperparameter selection framework
     - `models.py`: contains the models used for the experiments (MLP and ResNet18)

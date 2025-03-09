@@ -16,11 +16,12 @@ class RotatedMNIST:
     SIZE = (28, 28)
 
     def __init__(self):
+        self.degrees_list = []
         self.setting = self.SETTING
         self.tasks = []
         self.test_loaders = []
         self.val_loaders = []
-        self.setup_loaders() 
+        self.setup_loaders()
 
     class CustomMNIST(datasets.MNIST):
         def __init__(self, *args, **kwargs):
@@ -34,11 +35,8 @@ class RotatedMNIST:
                 img = self.transform(img)
 
             return img, target, img
-        
+
     def setup_loaders(self):
-        self.tasks = [] 
-        self.degrees_list = [] 
-        self.test_loaders = [] 
 
         def get_transform(degrees):
             """ Ensure each dataset gets its own independent transformation """
@@ -48,11 +46,12 @@ class RotatedMNIST:
             ])
 
         for task_id in range(self.N_TASKS):
-            degrees = np.random.uniform(0, 180) 
-            self.degrees_list.append(degrees) 
+            degrees = np.random.uniform(0, 180)
+            self.degrees_list.append(degrees)
 
             train_transform = get_transform(degrees)
-            train_dataset = self.CustomMNIST(root=config.DATASET_PATH, train=True, download=True, transform=train_transform)
+            train_dataset = self.CustomMNIST(root=config.DATASET_PATH, train=True, download=True,
+                                             transform=train_transform)
 
             # split training data into training (90%) and validation (10%)
             val_size = int(0.1 * len(train_dataset))
@@ -60,8 +59,9 @@ class RotatedMNIST:
             train_subset, val_subset = random_split(train_dataset, [train_size, val_size])
 
             test_transform = get_transform(degrees)
-            test_dataset = datasets.MNIST(root=config.DATASET_PATH, train=False, download=True, transform=test_transform)
-            
+            test_dataset = datasets.MNIST(root=config.DATASET_PATH, train=False, download=True,
+                                          transform=test_transform)
+
             train_dataloader = DataLoader(train_subset, batch_size=self.get_batch_size(), shuffle=True)
             val_dataloader = DataLoader(val_subset, batch_size=self.get_batch_size(), shuffle=False)
             test_dataloader = DataLoader(test_dataset, batch_size=self.get_batch_size(), shuffle=False)
@@ -70,13 +70,12 @@ class RotatedMNIST:
             self.val_loaders.append(val_dataloader)
             self.test_loaders.append(test_dataloader)
 
-
     def get_train_loader(self):
         return self.tasks
-    
+
     def get_test_loader(self, task_id: int):
         return self.test_loaders[task_id]
-    
+
     def get_val_loader(self, task_id: int):
         return self.val_loaders[task_id]
 
@@ -91,6 +90,6 @@ class RotatedMNIST:
 
     def get_epochs(self):
         return 1
-    
+
     def get_model(self, weights=None):
-        return models.SingleHeadMLP(input_size=28*28, hidden_size=100, output_size=10, weights=weights)
+        return models.SingleHeadMLP(input_size=28 * 28, hidden_size=100, output_size=10, weights=weights)

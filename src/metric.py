@@ -1,12 +1,15 @@
 import torch
 import numpy as np
 
+
 class Metric:
 
     def __init__(self, dataset):
         self.num_tasks = dataset.N_TASKS
         self.accuracies_CIL = np.zeros((self.num_tasks, self.num_tasks))
         self.accuracies_TIL = np.zeros((self.num_tasks, self.num_tasks))
+        self.random_accuracies_TIL = []
+        self.random_accuracies_CIL = []
         self.dataset = dataset
         self.setting = dataset.setting
         self.random_baseline_accuracy()
@@ -33,7 +36,7 @@ class Metric:
             val_loader = self.dataset.get_val_loader(task_id)
             correct, correct_mask_classes, total = 0.0, 0.0, 0.0
             to = (task_id + 1) * self.dataset.N_CLASSES_PER_TASK
-            
+
             for data in val_loader:
 
                 x, y = data[:2]
@@ -55,11 +58,10 @@ class Metric:
 
             if correct > correct_mask_classes and self.setting in ['task-il', 'class-il']:
                 print("WARNING: TIL performs worse than CIL")
-            
+
             self.accuracies_CIL[task_id, task_id] = correct / total * 100
             self.accuracies_TIL[task_id, task_id] = correct_mask_classes / total * 100
             return
-
 
         for experience_id in range(self.num_tasks):
 
@@ -94,7 +96,6 @@ class Metric:
             self.accuracies_TIL[task_id, experience_id] = correct_mask_classes / total * 100
 
         model.net.train(status)
-        
 
     def mask_classes(self, outputs, task_id):
         """
@@ -112,11 +113,8 @@ class Metric:
         outputs[:, :start] = -float('inf')
         outputs[:, end:] = -float('inf')
 
-    
     def random_baseline_accuracy(self):
         """ Compute the random baseline accuracy for each task. """
-        self.random_accuracies_TIL = []
-        self.random_accuracies_CIL = []
         random_baseline = self.dataset.get_model()
 
         for i in range(self.num_tasks):
@@ -135,14 +133,13 @@ class Metric:
                         self.mask_classes(outputs, i)
                         _, predicted = torch.max(outputs.data, 1)
                         correct += (predicted == y).sum().item()
-                    
+
             self.random_accuracies_CIL.append(correct / total * 100)
             self.random_accuracies_TIL.append(correct / total * 100)
 
-
     def print_metrics(self):
         """ Print evaluation metrics for both CIL and TIL settings. """
-        
+
         if self.setting == 'domain-il':
             self.print_DIL()
             return  # Exit early if domain-il is selected
@@ -194,7 +191,7 @@ class Metric:
     def get_task_accuracy(self, task_id):
         """
         Gets the accuracy of a model at a given task. 
-        In case of not domain-il setting we return an avergae of CIL and TIL accuracies (done for continual hyperparameter selection).
+        In case of not domain-il setting we return an average of CIL and TIL accuracies (done for continual hyperparameter selection).
 
         Args:
             task_id: task id
@@ -225,5 +222,3 @@ class Metric:
     def _forgetting(self, accuracies):
         """ Compute forgetting as negative backward transfer. """
         return -self._backward_transfer(accuracies)
-
-    

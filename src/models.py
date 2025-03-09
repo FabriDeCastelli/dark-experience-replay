@@ -30,17 +30,18 @@ class SingleHeadMLP(torch.nn.Module):
         x = x.view(x.size(0), -1)
         return self.net(x)
 
-    def eval(self, test_loader, **kwargs):
+    def eval(self, test_loader, *args):
         correct = 0
         total = 0
         with torch.no_grad():
-            for x, y in test_loader:
+            for data in test_loader:
+                x, y = data[:2]
                 outputs = self(x)
                 _, predicted = torch.max(outputs.data, 1)
                 total += y.size(0)
                 correct += (predicted == y).sum().item()
 
-        return correct / total
+        return correct / total * 100
 
 
 class SingleHeadResNet18(torch.nn.Module):

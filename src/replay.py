@@ -8,16 +8,18 @@ class DarkExperienceReplay:
     """
     Dark Experience Replay (DER).
     """
-    def __init__(self, dataset, lr, buffer_size=500, weights=None):
+    def __init__(self, dataset, lr=None, buffer_size=500, weights=None):
         self.dataset = dataset
         self.buffer = ReservoirBuffer(buffer_size)
         self.model = dataset.get_model(weights)
-        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=lr)
+        if lr is not None:
+            self.optimizer = torch.optim.SGD(self.model.parameters(), lr=lr)
+        else:
+            self.optimizer = None
         self.criterion = dataset.get_loss()
         self.transform = dataset.get_transform()
 
-    def train(self, train_loader, task_id, replay_batch_size, alpha=0.5, beta=None):
-
+    def train(self, train_loader, task_id, replay_batch_size, alpha=0.5, beta=None, verbose=True):
         """
         Train the model using Dark Experience Replay (DER).
 
@@ -27,6 +29,7 @@ class DarkExperienceReplay:
             replay_batch_size (int): Replay batch size.
             alpha (float): Alpha regularization term.
             beta (float): Beta regularization term. If specified it the algorithm is DER++.
+            verbose (bool): If True, print the loss at each epoch.
         """
 
         # get predefined number of epochs
@@ -39,7 +42,6 @@ class DarkExperienceReplay:
             for x_aug, y, x in train_loader:
 
                 self.optimizer.zero_grad()
-                loss = 0
 
                 # get predictions
                 task_ids = torch.full((x_aug.size(0),), task_id, dtype=torch.long)
@@ -62,5 +64,16 @@ class DarkExperienceReplay:
                 loss.backward()
                 self.optimizer.step()
                 self.buffer.add(x=x, z=outputs, y=y if beta is not None else None, task_id=task_id)
-            
-            print(f"Epoch {epoch+1}/{epochs} - Loss: {loss.item()}", end="\r")
+
+            if verbose:
+                print(f"Epoch {epoch+1}/{epochs} - Loss: {loss.item()}", end="\r")
+
+    def eval(self, val_loader):
+        return self.model.eval(val_loader)
+
+    def get_buffer(self):
+        return self.buffer
+
+    def set_optimizer(self, lr, model):
+        self.optimizer = torch.optim.SGD(model.parameters(), lr=lr)
+        self.model = model
